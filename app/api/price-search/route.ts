@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { findFirstDirectSellerUrl, resolvePurchaseLinks } from "@/app/lib/purchase-link";
 import type { ProductResult } from "@/app/lib/products";
 
 const QUERY_SYSTEM_PROMPT = `너는 자영업 식자재 구매 검색어 변환기다.
@@ -20,6 +21,18 @@ type SerpShoppingItem = {
   product_link?: string;
   link?: string;
   thumbnail?: string;
+  serpapi_product_api?: string;
+  merchant_link?: string;
+  sellers_results?: {
+    online_sellers?: Array<{ link?: string; merchant_link?: string; url?: string }>;
+  };
+  offers?:
+    | Array<{ link?: string; merchant_link?: string; url?: string }>
+    | {
+        link?: string;
+        online_sellers?: Array<{ link?: string; merchant_link?: string }>;
+        sellers?: Array<{ link?: string; merchant_link?: string }>;
+      };
 };
 
 type SerpShoppingResponse = {
@@ -54,20 +67,66 @@ function formatPrice(item: SerpShoppingItem): string {
   return "가격 확인";
 }
 
+function extractOffersLink(item: SerpShoppingItem): string | null {
+  const offers = item.offers;
+  if (Array.isArray(offers)) {
+    for (const offer of offers) {
+      if (offer.link?.startsWith("http")) return offer.link;
+      if (offer.merchant_link?.startsWith("http")) return offer.merchant_link;
+      if (offer.url?.startsWith("http")) return offer.url;
+    }
+    return null;
+  }
+  if (offers && typeof offers === "object") {
+    if (offers.link?.startsWith("http")) return offers.link;
+    const nested = offers.online_sellers ?? offers.sellers;
+    if (Array.isArray(nested)) {
+      for (const seller of nested) {
+        if (seller.link?.startsWith("http")) return seller.link;
+        if (seller.merchant_link?.startsWith("http")) return seller.merchant_link;
+      }
+    }
+  }
+  return null;
+}
+
 function mapShoppingResults(items: SerpShoppingItem[]): ProductResult[] {
-  return items
-    .map((item) => {
-      const link = item.product_link ?? item.link ?? "";
-      return {
-        title: item.title?.trim() ?? "",
-        price: formatPrice(item),
-        source: item.source?.trim() || "판매처 미상",
-        link,
-        thumbnail: item.thumbnail,
-      };
-    })
-    .filter((p) => p.title.length > 0 && p.link.startsWith("http"))
-    .slice(0, 12);
+  const products: ProductResult[] = [];
+
+  for (const item of items) {
+    const title = item.title?.trim() ?? "";
+    if (!title) continue;
+
+    const itemRecord = item as Record<string, unknown>;
+    const resolved = resolvePurchaseLinks(itemRecord);
+    const directLink = findFirstDirectSellerUrl(itemRecord);
+
+    const purchaseLink =
+      resolved?.purchaseLink ??
+      item.product_link ??
+      item.link ??
+      extractOffersLink(item) ??
+      "";
+
+    products.push({
+      title,
+      price: formatPrice(item),
+      source: item.source?.trim() || "판매처 미상",
+      link: item.link ?? null,
+      product_link: item.product_link ?? null,
+      offers_link: extractOffersLink(item),
+      serpapi_link: item.serpapi_product_api ?? null,
+      direct_link: directLink,
+      sellers_results: item.sellers_results ?? null,
+      purchaseLink,
+      isDirectPurchase: resolved?.isDirectPurchase ?? false,
+      thumbnail: item.thumbnail,
+    });
+
+    if (products.length >= 12) break;
+  }
+
+  return products;
 }
 
 export async function POST(request: NextRequest) {
