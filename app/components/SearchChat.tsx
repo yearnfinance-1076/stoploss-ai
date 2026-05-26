@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import PriceTrendChart from "./PriceTrendChart";
 
 type ChatMessage = {
   id: string;
@@ -9,10 +10,10 @@ type ChatMessage = {
 };
 
 const SUGGESTIONS = [
-  "식당용 식용유 최저가 찾아줘",
-  "분식집 튀김가루 가성비 제품 추천",
-  "카페용 원두 합리적인 가격으로 추천",
-  "고깃집 소모품 대체상품 추천",
+  "산미 있는 원두 중 가성비 좋은 거 추천해줘",
+  "고깃집 사이드메뉴 밀키트 저가 위주 추천",
+  "베이커리용 가성비 좋은 버터 추천해줘",
+  "분식집 튀김가루 최저가 비교해줘",
 ];
 
 function TypingIndicator() {
@@ -107,8 +108,15 @@ export default function SearchChat() {
     }
   }
 
+  function getUserQueryBefore(index: number): string {
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i]?.role === "user") return messages[i].content;
+    }
+    return "";
+  }
+
   return (
-    <div className="mx-auto mt-10 w-full max-w-2xl text-left">
+    <div className="mx-auto mt-8 w-full max-w-3xl text-left sm:mt-10">
       <div className="overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0e18]/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
         {/* Chat header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0d111c]/80 px-4 py-3 sm:px-5">
@@ -138,7 +146,7 @@ export default function SearchChat() {
         {/* Messages */}
         <div
           ref={scrollRef}
-          className={`overflow-y-auto px-4 py-5 sm:px-5 ${hasConversation || loading ? "min-h-[280px] max-h-[420px]" : "min-h-[140px]"}`}
+          className={`overflow-y-auto px-4 py-5 sm:px-5 ${hasConversation || loading ? "min-h-[280px] max-h-[520px]" : "min-h-[140px]"}`}
           aria-live="polite"
         >
           {!hasConversation && !loading && (
@@ -162,7 +170,7 @@ export default function SearchChat() {
           )}
 
           <div className="space-y-4">
-            {messages.map((msg) =>
+            {messages.map((msg, index) =>
               msg.role === "user" ? (
                 <div key={msg.id} className="flex justify-end">
                   <div className="max-w-[85%] rounded-2xl rounded-br-md bg-gradient-to-br from-[#3b9eff] to-[#2563eb] px-4 py-2.5 text-sm leading-relaxed text-white shadow-lg shadow-[#3b9eff]/15">
@@ -176,8 +184,11 @@ export default function SearchChat() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
                   </div>
-                  <div className="max-w-[90%] rounded-2xl rounded-tl-md border border-white/[0.06] bg-[#131a2b]/80 px-4 py-3 text-sm leading-relaxed text-[#d1d9e6]">
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div className="min-w-0 flex-1 max-w-[95%]">
+                    <div className="rounded-2xl rounded-tl-md border border-white/[0.06] bg-[#131a2b]/80 px-4 py-3 text-sm leading-relaxed text-[#d1d9e6]">
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                    <PriceTrendChart searchQuery={getUserQueryBefore(index)} />
                   </div>
                 </div>
               ) : (
@@ -215,7 +226,7 @@ export default function SearchChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="예: 베이커리용 가성비 좋은 버터 추천해줘"
+              placeholder="예: 산미 있는 원두 중 가성비 좋은 거 추천해줘"
               rows={1}
               disabled={loading}
               className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm text-white placeholder:text-[#5c6578] outline-none disabled:opacity-60"

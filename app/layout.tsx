@@ -9,9 +9,9 @@ const notoSans = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "STOPLOSS AI — 원재료 발주·손익 분석 플랫폼",
+  title: "STOPLOSS AI — 식자재 구매·원가·손익 관리",
   description:
-    "카페·베이커리를 위한 B2B 원재료 소싱 및 원가 관리. AI 최저가 검색, 발주 기록, 월별 원가율·세전/세후 이익 분석.",
+    "자영업 식자재 구매·원가 관리 플랫폼. AI 검색, 발주 캘린더, 가격 알림, 매출·순이익 계산, 사장님 커뮤니티를 한 번에.",
 };
 
 export default function RootLayout({
