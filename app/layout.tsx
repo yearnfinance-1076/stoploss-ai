@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import AppBackground from "./components/layout/AppBackground";
+import Footer from "./components/layout/Footer";
+import Header from "./components/layout/Header";
 import "./globals.css";
 
 const notoSans = Noto_Sans_KR({
@@ -21,7 +24,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`${notoSans.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full bg-[#06080f] text-[#f4f6fb]">
+        <AppBackground />
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </div>
+      </body>
     </html>
   );
 }
