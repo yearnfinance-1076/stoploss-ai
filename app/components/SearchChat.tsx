@@ -1,12 +1,16 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import type { ProductResult } from "@/app/lib/products";
+import ProductResults from "./ProductResults";
 import PriceTrendChart from "./PriceTrendChart";
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "error";
   content: string;
+  products?: ProductResult[];
+  searchQuery?: string;
 };
 
 const SUGGESTIONS = [
@@ -61,16 +65,39 @@ export default function SearchChat() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
+      const [chatRes, priceRes] = await Promise.all([
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        }),
+        fetch("/api/price-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: message }),
+        }),
+      ]);
 
-      const data = (await res.json()) as { response?: string; error?: string };
+      const chatData = (await chatRes.json()) as { response?: string; error?: string };
+      const priceData = (await priceRes.json()) as {
+        searchQuery?: string;
+        products?: ProductResult[];
+        error?: string;
+      };
 
-      if (!res.ok) {
-        throw new Error(data.error ?? "요청에 실패했습니다.");
+      if (!chatRes.ok) {
+        throw new Error(chatData.error ?? "AI 상담 요청에 실패했습니다.");
+      }
+
+      let productNote = "";
+      let products: ProductResult[] = [];
+      let searchQuery = message;
+
+      if (priceRes.ok && priceData.products) {
+        products = priceData.products;
+        searchQuery = priceData.searchQuery ?? message;
+      } else if (!priceRes.ok) {
+        productNote = `\n\n※ 실시간 상품 검색: ${priceData.error ?? "일시적으로 이용할 수 없습니다."}`;
       }
 
       setMessages((prev) => [
@@ -78,7 +105,9 @@ export default function SearchChat() {
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: data.response ?? "",
+          content: (chatData.response ?? "") + productNote,
+          products,
+          searchQuery,
         },
       ]);
     } catch (err) {
@@ -118,7 +147,6 @@ export default function SearchChat() {
   return (
     <div className="mx-auto mt-8 w-full max-w-3xl text-left sm:mt-10">
       <div className="overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0e18]/95 shadow-2xl shadow-black/50 backdrop-blur-xl">
-        {/* Chat header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0d111c]/80 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#3b9eff] to-[#1d4ed8] shadow-lg shadow-[#3b9eff]/20">
@@ -129,7 +157,7 @@ export default function SearchChat() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">식자재 구매 상담 AI</p>
-              <p className="text-xs text-[#5c6578]">카페 · 베이커리 · 음식점 맞춤 추천</p>
+              <p className="text-xs text-[#5c6578]">AI 추천 + 실시간 쇼핑 가격 비교</p>
             </div>
           </div>
           {hasConversation && (
@@ -143,16 +171,15 @@ export default function SearchChat() {
           )}
         </div>
 
-        {/* Messages */}
         <div
           ref={scrollRef}
-          className={`overflow-y-auto px-4 py-5 sm:px-5 ${hasConversation || loading ? "min-h-[280px] max-h-[520px]" : "min-h-[140px]"}`}
+          className={`overflow-y-auto px-4 py-5 sm:px-5 ${hasConversation || loading ? "min-h-[280px] max-h-[720px]" : "min-h-[140px]"}`}
           aria-live="polite"
         >
           {!hasConversation && !loading && (
             <div className="flex flex-col items-center justify-center py-4 text-center">
               <p className="text-sm text-[#8b95a8]">
-                업종과 조건을 알려주시면 식자재를 추천해 드립니다.
+                업종과 조건을 알려주시면 AI 추천과 실시간 구매 링크를 함께 보여드립니다.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {SUGGESTIONS.map((s) => (
@@ -188,6 +215,9 @@ export default function SearchChat() {
                     <div className="rounded-2xl rounded-tl-md border border-white/[0.06] bg-[#131a2b]/80 px-4 py-3 text-sm leading-relaxed text-[#d1d9e6]">
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     </div>
+                    {msg.products && msg.searchQuery && (
+                      <ProductResults searchQuery={msg.searchQuery} products={msg.products} />
+                    )}
                     <PriceTrendChart searchQuery={getUserQueryBefore(index)} />
                   </div>
                 </div>
@@ -207,15 +237,15 @@ export default function SearchChat() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
-                <div className="rounded-2xl rounded-tl-md border border-white/[0.06] bg-[#131a2b]/80 px-4 py-2">
+                <div className="rounded-2xl rounded-tl-md border border-white/[0.06] bg-[#131a2b]/80 px-4 py-3">
                   <TypingIndicator />
+                  <p className="mt-2 text-xs text-[#5c6578]">AI 상담 및 실시간 상품 검색 중…</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Input */}
         <form
           onSubmit={handleSubmit}
           className="border-t border-white/[0.06] bg-[#0d111c]/60 p-3 sm:p-4"
@@ -251,13 +281,13 @@ export default function SearchChat() {
             </button>
           </div>
           <p className="mt-2 text-center text-[10px] text-[#5c6578]">
-            Enter 전송 · Shift+Enter 줄바꿈 · AI는 참고용이며 실제 발주 전 확인이 필요합니다
+            Enter 전송 · Shift+Enter 줄바꿈 · 상품 링크는 Google Shopping 기준입니다
           </p>
         </form>
       </div>
 
       <p className="mt-3 text-center text-xs text-[#5c6578]">
-        12만+ SKU · 전국 도매·식자재 유통사 실시간 가격 비교
+        AI 추천 + SerpAPI 실시간 쇼핑 검색 · 발주 전 판매처·가격을 꼭 확인하세요
       </p>
     </div>
   );
