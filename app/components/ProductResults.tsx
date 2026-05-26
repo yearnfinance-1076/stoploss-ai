@@ -32,13 +32,11 @@ export default function ProductResults({ searchQuery, products }: ProductResults
 
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {products.map((product, index) => {
-          const href =
-            product.purchaseLink || product.link || product.product_link || "#";
           const buttonLabel = product.isDirectPurchase ? "구매하기" : "가격 보기";
 
           return (
           <li
-            key={`${href}-${index}`}
+            key={`${product.purchaseLink}-${index}`}
             className="flex gap-3 rounded-lg border border-white/[0.06] bg-[#131a2b]/70 p-3 transition hover:border-[#3b9eff]/30"
           >
             {product.thumbnail ? (
@@ -61,7 +59,7 @@ export default function ProductResults({ searchQuery, products }: ProductResults
               </p>
               <p className="mt-0.5 truncate text-xs text-[#5c6578]">{product.source}</p>
               <a
-                href={href}
+                href={product.purchaseLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`mt-2 inline-flex w-fit items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium text-white transition ${
@@ -72,38 +70,6 @@ export default function ProductResults({ searchQuery, products }: ProductResults
               >
                 {buttonLabel}
               </a>
-              <div className="mt-2 space-y-1 border-t border-amber-500/20 pt-2 font-mono text-[9px] leading-relaxed text-amber-200/70 break-all">
-                <p className="text-[10px] font-semibold text-amber-400">[DEBUG] SerpAPI links</p>
-                <p>
-                  <span className="text-[#5c6578]">link:</span> {product.link ?? "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">product_link:</span>{" "}
-                  {product.product_link ?? "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">offers_link:</span>{" "}
-                  {product.offers_link ?? "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">serpapi_link:</span>{" "}
-                  {product.serpapi_link ?? "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">direct_link:</span>{" "}
-                  {product.direct_link ?? "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">purchaseLink:</span>{" "}
-                  {product.purchaseLink || "—"}
-                </p>
-                <p>
-                  <span className="text-[#5c6578]">sellers_results:</span>{" "}
-                  {product.sellers_results != null
-                    ? JSON.stringify(product.sellers_results)
-                    : "—"}
-                </p>
-              </div>
             </div>
           </li>
           );

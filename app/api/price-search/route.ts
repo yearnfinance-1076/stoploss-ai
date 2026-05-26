@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { findFirstDirectSellerUrl, resolvePurchaseLinks } from "@/app/lib/purchase-link";
+import { resolvePurchaseLinks } from "@/app/lib/purchase-link";
 import type { ProductResult } from "@/app/lib/products";
 
 const QUERY_SYSTEM_PROMPT = `너는 자영업 식자재 구매 검색어 변환기다.
@@ -67,29 +67,6 @@ function formatPrice(item: SerpShoppingItem): string {
   return "가격 확인";
 }
 
-function extractOffersLink(item: SerpShoppingItem): string | null {
-  const offers = item.offers;
-  if (Array.isArray(offers)) {
-    for (const offer of offers) {
-      if (offer.link?.startsWith("http")) return offer.link;
-      if (offer.merchant_link?.startsWith("http")) return offer.merchant_link;
-      if (offer.url?.startsWith("http")) return offer.url;
-    }
-    return null;
-  }
-  if (offers && typeof offers === "object") {
-    if (offers.link?.startsWith("http")) return offers.link;
-    const nested = offers.online_sellers ?? offers.sellers;
-    if (Array.isArray(nested)) {
-      for (const seller of nested) {
-        if (seller.link?.startsWith("http")) return seller.link;
-        if (seller.merchant_link?.startsWith("http")) return seller.merchant_link;
-      }
-    }
-  }
-  return null;
-}
-
 function mapShoppingResults(items: SerpShoppingItem[]): ProductResult[] {
   const products: ProductResult[] = [];
 
@@ -97,29 +74,15 @@ function mapShoppingResults(items: SerpShoppingItem[]): ProductResult[] {
     const title = item.title?.trim() ?? "";
     if (!title) continue;
 
-    const itemRecord = item as Record<string, unknown>;
-    const resolved = resolvePurchaseLinks(itemRecord);
-    const directLink = findFirstDirectSellerUrl(itemRecord);
-
-    const purchaseLink =
-      resolved?.purchaseLink ??
-      item.product_link ??
-      item.link ??
-      extractOffersLink(item) ??
-      "";
+    const resolved = resolvePurchaseLinks(item as Record<string, unknown>);
+    if (!resolved || !resolved.purchaseLink.startsWith("http")) continue;
 
     products.push({
       title,
       price: formatPrice(item),
       source: item.source?.trim() || "판매처 미상",
-      link: item.link ?? null,
-      product_link: item.product_link ?? null,
-      offers_link: extractOffersLink(item),
-      serpapi_link: item.serpapi_product_api ?? null,
-      direct_link: directLink,
-      sellers_results: item.sellers_results ?? null,
-      purchaseLink,
-      isDirectPurchase: resolved?.isDirectPurchase ?? false,
+      purchaseLink: resolved.purchaseLink,
+      isDirectPurchase: resolved.isDirectPurchase,
       thumbnail: item.thumbnail,
     });
 
