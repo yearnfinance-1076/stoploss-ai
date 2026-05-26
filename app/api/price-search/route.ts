@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { resolvePurchaseLinks } from "@/app/lib/purchase-link";
 import type { ProductResult } from "@/app/lib/products";
 
 const QUERY_SYSTEM_PROMPT = `너는 자영업 식자재 구매 검색어 변환기다.
@@ -18,21 +17,10 @@ type SerpShoppingItem = {
   price?: string;
   extracted_price?: number;
   source?: string;
+  product_id?: string | number;
   product_link?: string;
   link?: string;
   thumbnail?: string;
-  serpapi_product_api?: string;
-  merchant_link?: string;
-  sellers_results?: {
-    online_sellers?: Array<{ link?: string; merchant_link?: string; url?: string }>;
-  };
-  offers?:
-    | Array<{ link?: string; merchant_link?: string; url?: string }>
-    | {
-        link?: string;
-        online_sellers?: Array<{ link?: string; merchant_link?: string }>;
-        sellers?: Array<{ link?: string; merchant_link?: string }>;
-      };
 };
 
 type SerpShoppingResponse = {
@@ -67,22 +55,26 @@ function formatPrice(item: SerpShoppingItem): string {
   return "가격 확인";
 }
 
+function resolveFallbackLink(item: SerpShoppingItem): string | null {
+  if (item.product_link?.startsWith("http")) return item.product_link;
+  if (item.link?.startsWith("http")) return item.link;
+  return null;
+}
+
 function mapShoppingResults(items: SerpShoppingItem[]): ProductResult[] {
   const products: ProductResult[] = [];
 
   for (const item of items) {
     const title = item.title?.trim() ?? "";
-    if (!title) continue;
-
-    const resolved = resolvePurchaseLinks(item as Record<string, unknown>);
-    if (!resolved || !resolved.purchaseLink.startsWith("http")) continue;
+    const fallbackLink = resolveFallbackLink(item);
+    if (!title || !fallbackLink) continue;
 
     products.push({
+      productId: item.product_id != null ? String(item.product_id) : null,
+      fallbackLink,
       title,
       price: formatPrice(item),
       source: item.source?.trim() || "판매처 미상",
-      purchaseLink: resolved.purchaseLink,
-      isDirectPurchase: resolved.isDirectPurchase,
       thumbnail: item.thumbnail,
     });
 

@@ -28,8 +28,14 @@ export function unwrapGoogleRedirect(url: string): string | null {
   return null;
 }
 
+/** Returns false for Google URLs; true for http(s) direct merchant links. */
 export function isDirectMerchantUrl(url: string): boolean {
   if (!url.startsWith("http")) return false;
+  if (url.includes("google.com")) {
+    const unwrapped = unwrapGoogleRedirect(url);
+    if (!unwrapped) return false;
+    return !isGoogleShoppingUrl(unwrapped) && !unwrapped.includes("google.com");
+  }
   const unwrapped = unwrapGoogleRedirect(url) ?? url;
   return !isGoogleShoppingUrl(unwrapped);
 }
@@ -57,15 +63,29 @@ export function collectSellerCandidateUrls(item: LinkCarrier): string[] {
 
   const sellersResults = item.sellers_results;
   if (sellersResults && typeof sellersResults === "object") {
-    const onlineSellers = (sellersResults as LinkCarrier).online_sellers;
-    if (Array.isArray(onlineSellers)) {
-      for (const seller of onlineSellers) {
-        if (seller && typeof seller === "object") {
-          const s = seller as LinkCarrier;
-          pushUrl(urls, s.link);
-          pushUrl(urls, s.merchant_link);
-          pushUrl(urls, s.url);
+    const sr = sellersResults as LinkCarrier;
+    for (const key of ["online_sellers", "sellers", "local_sellers"] as const) {
+      const list = sr[key];
+      if (Array.isArray(list)) {
+        for (const seller of list) {
+          if (seller && typeof seller === "object") {
+            const s = seller as LinkCarrier;
+            pushUrl(urls, s.link);
+            pushUrl(urls, s.merchant_link);
+            pushUrl(urls, s.url);
+          }
         }
+      }
+    }
+  }
+
+  const buyingOptions = item.buying_options;
+  if (Array.isArray(buyingOptions)) {
+    for (const option of buyingOptions) {
+      if (option && typeof option === "object") {
+        const o = option as LinkCarrier;
+        pushUrl(urls, o.link);
+        pushUrl(urls, o.merchant_link);
       }
     }
   }
@@ -104,6 +124,48 @@ export function findFirstDirectSellerUrl(item: LinkCarrier): string | null {
     if (isDirectMerchantUrl(normalized)) return normalized;
   }
   return null;
+}
+
+function linkFromEntry(entry: unknown): string | null {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as LinkCarrier;
+  const raw = e.link ?? e.merchant_link ?? e.url;
+  if (typeof raw !== "string" || !raw.startsWith("http")) return null;
+  const normalized = normalizeMerchantUrl(raw);
+  return isDirectMerchantUrl(normalized) ? normalized : null;
+}
+
+function linkFromFirstInList(list: unknown): string | null {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return linkFromEntry(list[0]);
+}
+
+/**
+ * Product API (google_shopping_product) — prioritized direct merchant extraction.
+ */
+export function findDirectMerchantLinkFromProductResponse(
+  data: LinkCarrier,
+): string | null {
+  const sellersResults = data.sellers_results;
+  if (sellersResults && typeof sellersResults === "object") {
+    const sr = sellersResults as LinkCarrier;
+    const fromOnline = linkFromFirstInList(sr.online_sellers);
+    if (fromOnline) return fromOnline;
+    const fromSellers = linkFromFirstInList(sr.sellers);
+    if (fromSellers) return fromSellers;
+  }
+
+  const fromOffers = linkFromFirstInList(data.offers);
+  if (fromOffers) return fromOffers;
+
+  const fromBuying = linkFromFirstInList(data.buying_options);
+  if (fromBuying) return fromBuying;
+
+  return findFirstDirectSellerUrl(data);
+}
+
+export function buildButtonLabel(isDirectPurchase: boolean): "구매하기" | "가격 보기" {
+  return isDirectPurchase ? "구매하기" : "가격 보기";
 }
 
 export type ResolvedPurchaseLinks = {

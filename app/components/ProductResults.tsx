@@ -1,4 +1,5 @@
 import type { ProductResult } from "@/app/lib/products";
+import ProductCard from "./ProductCard";
 
 type ProductResultsProps = {
   searchQuery: string;
@@ -31,49 +32,12 @@ export default function ProductResults({ searchQuery, products }: ProductResults
       </div>
 
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-        {products.map((product, index) => {
-          const buttonLabel = product.isDirectPurchase ? "구매하기" : "가격 보기";
-
-          return (
-          <li
-            key={`${product.purchaseLink}-${index}`}
-            className="flex gap-3 rounded-lg border border-white/[0.06] bg-[#131a2b]/70 p-3 transition hover:border-[#3b9eff]/30"
-          >
-            {product.thumbnail ? (
-              <img
-                src={product.thumbnail}
-                alt=""
-                className="h-16 w-16 shrink-0 rounded-md border border-white/[0.06] bg-white/5 object-cover"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-white/[0.06] bg-white/[0.03] text-[10px] text-[#5c6578]">
-                No img
-              </div>
-            )}
-            <div className="flex min-w-0 flex-1 flex-col">
-              <p className="line-clamp-2 text-sm font-medium leading-snug">{product.title}</p>
-              <p className="mt-1 text-base font-semibold tabular-nums text-[#7ec8ff]">
-                {product.price}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-[#5c6578]">{product.source}</p>
-              <a
-                href={product.purchaseLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`mt-2 inline-flex w-fit items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium text-white transition ${
-                  product.isDirectPurchase
-                    ? "bg-[#3b9eff] hover:bg-[#2d8ef0]"
-                    : "border border-[#3b9eff]/40 bg-[#3b9eff]/15 text-[#7ec8ff] hover:bg-[#3b9eff]/25"
-                }`}
-              >
-                {buttonLabel}
-              </a>
-            </div>
-          </li>
-          );
-        })}
+        {products.map((product, index) => (
+          <ProductCard
+            key={`${product.fallbackLink}-${product.productId ?? index}`}
+            product={product}
+          />
+        ))}
       </ul>
     </div>
   );
